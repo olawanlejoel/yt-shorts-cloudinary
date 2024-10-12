@@ -1,101 +1,123 @@
-import Image from "next/image";
+'use client';
+
+import { upload } from '../actions/upload';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+	const [videoUrl, setVideoUrl] = useState<string | null>(null); // Store video URL
+	const [videoId, setVideoId] = useState<string | null>(null);
+	const [transformedVideoUrl, setTransformedVideoUrl] = useState<string | null>(
+		null
+	);
+	const [loading, setLoading] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		setLoading(true);
+		const formData = new FormData(event.currentTarget);
+
+		try {
+			const result = await upload(formData); // Upload the video
+			setVideoUrl(result.originalUrl); // Set the video URL in state
+			setVideoId(result.videoId); // Set the video ID for further transformations
+		} catch (error) {
+			console.error('Upload failed', error);
+		} finally {
+			setLoading(false); // Stop loading state
+		}
+	};
+
+	// Apply smart cropping and transform the video
+	useEffect(() => {
+		const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+		// Construct the Cloudinary video URL with subtitles overlay
+		const subtitlePublicId = `${videoId}.transcript`;
+		const generatedVideoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/c_fill,w_720,h_1280/l_subtitles:${subtitlePublicId},g_south,y_30/${videoId}.mp4`;
+
+		// Set the transformed video URL with subtitles
+		setTransformedVideoUrl(generatedVideoUrl);
+	}, [videoId]);
+
+	// Function to handle download of the transformed video
+	const handleDownload = async () => {
+		if (transformedVideoUrl) {
+			// Fetch the video from the URL
+			const response = await fetch(transformedVideoUrl, {
+				method: 'GET',
+				mode: 'cors',
+			});
+
+			// Create a blob from the response
+			const blob = await response.blob();
+
+			// Create a URL for the blob object
+			const blobUrl = window.URL.createObjectURL(blob);
+
+			// Create a link element and trigger the download
+			const a = document.createElement('a');
+			a.href = blobUrl;
+			a.download = `optimized_video`;
+			document.body.appendChild(a);
+			a.click();
+
+			// Clean up the URL object
+			window.URL.revokeObjectURL(blobUrl);
+			document.body.removeChild(a);
+		}
+	};
+
+	return (
+		<div className="min-h-screen flex-col items-center justify-between p-10 mt-14">
+			<h1 className="text-3xl font-semibold text-center pb-5">
+				Generate YouTube Shorts with Subtitles using Cloudinary
+			</h1>
+			<div className="flex justify-center my-10 items-center ">
+				<form onSubmit={handleSubmit} className="border p-2 rounded">
+					<input type="file" name="video" accept="video/*" required />
+					<button
+						type="submit"
+						className="bg-blue-800 text-white p-2 rounded-md"
+						disabled={loading}
+					>
+						{loading ? 'Uploading...' : 'Upload'}
+					</button>
+				</form>
+			</div>
+
+			{videoUrl && transformedVideoUrl && (
+				<div className="flex justify-center space-x-4 mt-10">
+					<div>
+						<h2 className="text-lg font-bold text-center mb-4">
+							Uploaded Video
+						</h2>
+						<video
+							src={videoUrl}
+							controls
+							className="w-full max-w-md border-4 rounded"
+						/>
+					</div>
+					<div>
+						<h2 className="text-lg font-bold text-center mb-4">
+							Transformed Video
+						</h2>
+						<video
+							src={transformedVideoUrl}
+							controls
+							className="w-full max-w-md border-4 rounded"
+						/>
+						{/* Add a download button */}
+						<div className="text-center mt-4">
+							<button
+								onClick={handleDownload}
+								className="bg-green-600 text-white p-2 rounded-md"
+							>
+								Download Video
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
 }
