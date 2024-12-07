@@ -24,7 +24,7 @@ export async function upload(formData: FormData) {
 				{
 					resource_type: 'video',
 					public_id: safePublicId,
-					raw_convert: 'google_speech', // Request transcription
+					raw_convert: 'google_speech:vtt', // Request transcription
 				},
 				(error, result) => {
 					if (error) {

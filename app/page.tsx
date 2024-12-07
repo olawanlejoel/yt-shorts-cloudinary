@@ -1,15 +1,15 @@
 'use client';
 
 import { upload } from '../actions/upload';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function Home() {
 	const [videoUrl, setVideoUrl] = useState<string | null>(null); // Store video URL
-	const [videoId, setVideoId] = useState<string | null>(null);
-	const [transformedVideoUrl, setTransformedVideoUrl] = useState<string | null>(
-		null
-	);
+	const [videoId, setVideoId] = useState<string | null>(null); // Store video ID
 	const [loading, setLoading] = useState(false);
+	const [cloudName] = useState<string>(
+		`${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}`
+	);
 
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -24,46 +24,6 @@ export default function Home() {
 			console.error('Upload failed', error);
 		} finally {
 			setLoading(false); // Stop loading state
-		}
-	};
-
-	// Apply smart cropping and transform the video
-	useEffect(() => {
-		const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-
-		// Construct the Cloudinary video URL with subtitles overlay
-		const subtitlePublicId = `${videoId}.transcript`;
-		const generatedVideoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/c_fill,w_720,h_1280/l_subtitles:${subtitlePublicId},g_south,y_30/${videoId}.mp4`;
-
-		// Set the transformed video URL with subtitles
-		setTransformedVideoUrl(generatedVideoUrl);
-	}, [videoId]);
-
-	// Function to handle download of the transformed video
-	const handleDownload = async () => {
-		if (transformedVideoUrl) {
-			// Fetch the video from the URL
-			const response = await fetch(transformedVideoUrl, {
-				method: 'GET',
-				mode: 'cors',
-			});
-
-			// Create a blob from the response
-			const blob = await response.blob();
-
-			// Create a URL for the blob object
-			const blobUrl = window.URL.createObjectURL(blob);
-
-			// Create a link element and trigger the download
-			const a = document.createElement('a');
-			a.href = blobUrl;
-			a.download = `optimized_video`;
-			document.body.appendChild(a);
-			a.click();
-
-			// Clean up the URL object
-			window.URL.revokeObjectURL(blobUrl);
-			document.body.removeChild(a);
 		}
 	};
 
@@ -85,7 +45,7 @@ export default function Home() {
 				</form>
 			</div>
 
-			{videoUrl && transformedVideoUrl && (
+			{videoUrl && (
 				<div className="flex justify-center space-x-4 mt-10">
 					<div>
 						<h2 className="text-lg font-bold text-center mb-4">
@@ -102,19 +62,23 @@ export default function Home() {
 							Transformed Video
 						</h2>
 						<video
-							src={transformedVideoUrl}
+							crossOrigin="anonymous"
 							controls
 							className="w-full max-w-md border-4 rounded"
-						/>
-						{/* Add a download button */}
-						<div className="text-center mt-4">
-							<button
-								onClick={handleDownload}
-								className="bg-green-600 text-white p-2 rounded-md"
-							>
-								Download Video
-							</button>
-						</div>
+						>
+							<source
+								id="mp4"
+								src={`https://res.cloudinary.com/${cloudName}/video/upload/c_fill,w_720,h_1280/${videoId}.mp4`}
+								type="video/mp4"
+							/>
+							<track
+								label="English"
+								kind="subtitles"
+								srcLang="en"
+								src={`https://res.cloudinary.com/${cloudName}/raw/upload/${videoId}.vtt`}
+								default
+							/>
+						</video>
 					</div>
 				</div>
 			)}
